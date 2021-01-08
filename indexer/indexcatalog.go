@@ -10,25 +10,19 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
 
 func (catalog Catalog) BuildIndex() error {
+
+	start := time.Now()
 
 	hostname, err := os.Hostname()
 	if err != nil {
 		log.Println("Error getting hostname")
 		hostname = "localhost"
 	}
-	/*
-		for _, ndxPath := range catalog.IndexPaths {
-			ndxPath.Hostname = hostname
-			err := catalog.BuildPathIndex(ndxPath)
-			if err != nil {
-				log.Println("Error processing catalog path: " + ndxPath.Path)
-			}
 
-		}
-	*/
 	var wg sync.WaitGroup
 	for _, ndxPath := range catalog.IndexPaths {
 		ndxPath.Hostname = hostname
@@ -38,9 +32,13 @@ func (catalog Catalog) BuildIndex() error {
 	log.Println("waiting on threads")
 	wg.Wait()
 
+	duration := time.Since(start)
+	fmt.Printf("%v", duration)
+
 	return nil
 }
 
+// goroutine stub for Catalog.BuildPathIndex
 func BuildPathIndex(catalog Catalog, ndxPath IndexPath, wg *sync.WaitGroup) {
 	defer wg.Done()
 
