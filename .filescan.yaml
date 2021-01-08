@@ -1,0 +1,13 @@
+Catalogs:
+ - Name: personal
+   # in Kilobytes
+   CksumKBytes: 0
+   IndexPaths:
+   - Path: c:\opencv
+     Exclude: 
+       - "*.tgz"
+   - Path: d:\google drive
+     Exclude: 
+       - "*.csv"
+
+   - Path: D:\data\projects\python
