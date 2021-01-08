@@ -17,20 +17,35 @@ func (catalog Catalog) BuildIndex() error {
 
 	start := time.Now()
 
+	const multi = true
+
 	hostname, err := os.Hostname()
 	if err != nil {
 		log.Println("Error getting hostname")
 		hostname = "localhost"
 	}
 
-	var wg sync.WaitGroup
-	for _, ndxPath := range catalog.IndexPaths {
-		ndxPath.Hostname = hostname
-		wg.Add(1)
-		go BuildPathIndex(catalog, ndxPath, &wg)
+	if !multi {
+
+		for _, ndxPath := range catalog.IndexPaths {
+			ndxPath.Hostname = hostname
+			err := catalog.BuildPathIndex(ndxPath)
+			if err != nil {
+				log.Println("Error processing catalog path: " + ndxPath.Path)
+			}
+
+		}
+	} else {
+
+		var wg sync.WaitGroup
+		for _, ndxPath := range catalog.IndexPaths {
+			ndxPath.Hostname = hostname
+			wg.Add(1)
+			go BuildPathIndex(catalog, ndxPath, &wg)
+		}
+		log.Println("waiting on threads")
+		wg.Wait()
 	}
-	log.Println("waiting on threads")
-	wg.Wait()
 
 	duration := time.Since(start)
 	fmt.Printf("%v", duration)
@@ -85,14 +100,19 @@ func (catalog Catalog) BuildPathIndex(ndxPath IndexPath) error {
 				"",
 				0} // initialize the CksumBytes to zero because it isn't calculated yet
 
-			catalog.ProcessIndexFile(ndxfile)
+			catalog.ProcessIndexFile(&ndxfile)
+
+			err = ndxfile.DisplayIndexFileToStdout()
+			if err != nil {
+				return err
+			}
 		}
 	}
 
 	return nil
 }
 
-func (catalog Catalog) ProcessIndexFile(ndxFile IndexFile) error {
+func (catalog Catalog) ProcessIndexFile(ndxFile *IndexFile) error {
 	var err error
 	// ndxFile.Sha256Sum(catalog.CksumBytes * 1024)
 	cksumBytes := catalog.CksumKBytes * 1024
@@ -108,10 +128,6 @@ func (catalog Catalog) ProcessIndexFile(ndxFile IndexFile) error {
 	ndxFile.Cksum = fmt.Sprintf("%x", cksumtmp)
 	ndxFile.CksumBytes = cksumBytes
 
-	err = ndxFile.DisplayIndexFileToStdout()
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
