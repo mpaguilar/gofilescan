@@ -17,8 +17,8 @@ func (catalog Catalog) BuildIndex() error {
 
 	start := time.Now()
 
-	const multi = true
-	const mmulti = false
+	const multi = false
+	const mmulti = true
 
 	var wg sync.WaitGroup
 	catalog.NdxJobWaitGroup = &wg
@@ -54,6 +54,8 @@ func (catalog Catalog) BuildIndex() error {
 			}
 
 		}
+
+		wg.Wait()
 
 	}
 
@@ -122,6 +124,7 @@ func (catalog Catalog) BuildPathIndex(ndxPath IndexPath, multi bool) error {
 				0} // initialize the CksumBytes to zero because it isn't calculated yet
 
 			if multi {
+				catalog.NdxJobWaitGroup.Add(1)
 				catalog.NdxJobs <- &ndxfile
 			}
 
@@ -144,8 +147,8 @@ func (catalog Catalog) BuildPathIndex(ndxPath IndexPath, multi bool) error {
 
 func (catalog Catalog) ProcessIndexFileWorker() {
 	for ndxFile := range catalog.NdxJobs {
-		catalog.NdxJobWaitGroup.Add(1)
 		catalog.ProcessIndexFile(ndxFile)
+		catalog.NdxJobWaitGroup.Done()
 	}
 }
 
