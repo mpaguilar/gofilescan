@@ -18,6 +18,11 @@ func (catalog Catalog) BuildIndex() error {
 	start := time.Now()
 
 	const multi = true
+	const mmulti = false
+
+	var wg sync.WaitGroup
+	catalog.NdxJobWaitGroup = &wg
+	catalog.NdxJobs = make(chan *IndexFile)
 
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -25,18 +30,7 @@ func (catalog Catalog) BuildIndex() error {
 		hostname = "localhost"
 	}
 
-	if !multi {
-
-		for _, ndxPath := range catalog.IndexPaths {
-			ndxPath.Hostname = hostname
-			err := catalog.BuildPathIndex(ndxPath)
-			if err != nil {
-				log.Println("Error processing catalog path: " + ndxPath.Path)
-			}
-
-		}
-	} else {
-
+	if multi {
 		var wg sync.WaitGroup
 		for _, ndxPath := range catalog.IndexPaths {
 			ndxPath.Hostname = hostname
@@ -47,6 +41,33 @@ func (catalog Catalog) BuildIndex() error {
 		wg.Wait()
 	}
 
+	if mmulti {
+		for i := 0; i < 5; i++ {
+			go catalog.ProcessIndexFileWorker()
+		}
+
+		for _, ndxPath := range catalog.IndexPaths {
+			ndxPath.Hostname = hostname
+			err := catalog.BuildPathIndex(ndxPath, true)
+			if err != nil {
+				log.Println("Error processing catalog path: " + ndxPath.Path)
+			}
+
+		}
+
+	}
+
+	if !multi && !mmulti {
+
+		for _, ndxPath := range catalog.IndexPaths {
+			ndxPath.Hostname = hostname
+			err := catalog.BuildPathIndex(ndxPath, false)
+			if err != nil {
+				log.Println("Error processing catalog path: " + ndxPath.Path)
+			}
+
+		}
+	}
 	duration := time.Since(start)
 	fmt.Printf("%v", duration)
 
@@ -57,7 +78,7 @@ func (catalog Catalog) BuildIndex() error {
 func BuildPathIndex(catalog Catalog, ndxPath IndexPath, wg *sync.WaitGroup) {
 	defer wg.Done()
 
-	err := catalog.BuildPathIndex(ndxPath)
+	err := catalog.BuildPathIndex(ndxPath, false)
 	if err != nil {
 		log.Println("Error processing catalog " + catalog.Name + " path: " + ndxPath.Path)
 	}
@@ -66,7 +87,7 @@ func BuildPathIndex(catalog Catalog, ndxPath IndexPath, wg *sync.WaitGroup) {
 // retrieve the entries in this directory
 // sort into directories and files
 // send them to IndexCurrentPath
-func (catalog Catalog) BuildPathIndex(ndxPath IndexPath) error {
+func (catalog Catalog) BuildPathIndex(ndxPath IndexPath, multi bool) error {
 	var err error
 
 	cleanPath := filepath.Clean(ndxPath.Path)
@@ -83,7 +104,7 @@ func (catalog Catalog) BuildPathIndex(ndxPath IndexPath) error {
 		if dirent.IsDir() {
 			newNdxPath := ndxPath
 			newNdxPath.Path = ndxPath.Path + "/" + dirent.Name()
-			catalog.BuildPathIndex(newNdxPath)
+			catalog.BuildPathIndex(newNdxPath, multi)
 			continue
 		}
 
@@ -100,16 +121,32 @@ func (catalog Catalog) BuildPathIndex(ndxPath IndexPath) error {
 				"",
 				0} // initialize the CksumBytes to zero because it isn't calculated yet
 
-			catalog.ProcessIndexFile(&ndxfile)
-
-			err = ndxfile.DisplayIndexFileToStdout()
-			if err != nil {
-				return err
+			if multi {
+				catalog.NdxJobs <- &ndxfile
 			}
+
+			if !multi {
+
+				catalog.ProcessIndexFile(&ndxfile)
+				/*
+					err = ndxfile.DisplayIndexFileToStdout()
+					if err != nil {
+						return err
+					}
+				*/
+			}
+
 		}
 	}
 
 	return nil
+}
+
+func (catalog Catalog) ProcessIndexFileWorker() {
+	for ndxFile := range catalog.NdxJobs {
+		catalog.NdxJobWaitGroup.Add(1)
+		catalog.ProcessIndexFile(ndxFile)
+	}
 }
 
 func (catalog Catalog) ProcessIndexFile(ndxFile *IndexFile) error {

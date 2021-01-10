@@ -1,6 +1,7 @@
 package indexer
 
 import (
+	"sync"
 	"time"
 )
 
@@ -12,9 +13,11 @@ type IndexPath struct {
 }
 
 type Catalog struct {
-	Name        string
-	CksumKBytes int64
-	IndexPaths  []IndexPath
+	Name            string
+	CksumKBytes     int64
+	IndexPaths      []IndexPath
+	NdxJobs         chan *IndexFile
+	NdxJobWaitGroup *sync.WaitGroup
 }
 
 // IndexFile stores the exact number of bytes
