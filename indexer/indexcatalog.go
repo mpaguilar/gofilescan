@@ -234,6 +234,7 @@ func (ndxFile *IndexFile) Sha256Sum(cksumBytes int64) error {
 		return err
 	}
 	ndxFile.Cksum = fmt.Sprintf("%x", sha.Sum(nil))
+	ndxFile.CksumBytes = cksumBytes
 
 	return nil
 }
