@@ -2,6 +2,7 @@ package indexer
 
 import (
 	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -108,7 +109,7 @@ func (catalog Catalog) BuildPathIndex(ndxPath IndexPath) error {
 func (catalog Catalog) CreateResultsPool(done chan bool) {
 	var resultWaitGroup sync.WaitGroup
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < catalog.ResultJobCount; i++ {
 		go catalog.ProcessResultsWorker(&resultWaitGroup)
 		resultWaitGroup.Add(1)
 	}
@@ -121,7 +122,7 @@ func (catalog Catalog) CreateIndexerPool() {
 
 	var jobWaitGroup sync.WaitGroup
 
-	for i := 0; i < 20; i++ {
+	for i := 0; i < catalog.IndexJobCount; i++ {
 		go catalog.ProcessIndexFileWorker(&jobWaitGroup)
 		jobWaitGroup.Add(1)
 	}
@@ -212,6 +213,11 @@ func CalcSha256(fullPath string, cksumBytes int64) ([]byte, error) {
 func (ndxFile *IndexFile) Sha256Sum(cksumBytes int64) error {
 
 	var err error
+	partial := false
+
+	if cksumBytes != 0 {
+		partial = true
+	}
 
 	fileHandle, err := os.Open(ndxFile.FullPath)
 
@@ -223,8 +229,17 @@ func (ndxFile *IndexFile) Sha256Sum(cksumBytes int64) error {
 
 	sha := sha256.New()
 
-	if cksumBytes == 0 {
+	if !partial {
 		cksumBytes = ndxFile.Size
+	}
+
+	// if we've only checked part of the file
+	// salt it with the actual filesize
+	// it will do this even if the filesize is less than the requested number of bytes
+	if partial {
+		b := make([]byte, 8)
+		binary.LittleEndian.PutUint64(b, uint64(ndxFile.Size))
+		sha.Write(b)
 	}
 
 	if _, err := io.CopyN(sha, fileHandle, cksumBytes); err != nil && err != io.EOF {
@@ -233,6 +248,7 @@ func (ndxFile *IndexFile) Sha256Sum(cksumBytes int64) error {
 
 		return err
 	}
+
 	ndxFile.Cksum = fmt.Sprintf("%x", sha.Sum(nil))
 	ndxFile.CksumBytes = cksumBytes
 

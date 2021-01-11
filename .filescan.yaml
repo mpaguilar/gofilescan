@@ -1,7 +1,9 @@
 Catalogs:
  - Name: personal
    # in Kilobytes
-   CksumKBytes: 0
+   CksumKBytes: 4
+   IndexJobCount: 5
+   ResultJobCount: 5
    IndexPaths:
 
    - Path: c:\opencv

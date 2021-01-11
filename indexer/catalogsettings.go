@@ -12,11 +12,13 @@ type IndexPath struct {
 }
 
 type Catalog struct {
-	Name        string
-	CksumKBytes int64
-	IndexPaths  []IndexPath
-	NdxJobs     chan *IndexFile
-	NdxResults  chan *IndexFile
+	Name           string
+	CksumKBytes    int64
+	IndexPaths     []IndexPath
+	NdxJobs        chan *IndexFile
+	NdxResults     chan *IndexFile
+	IndexJobCount  int
+	ResultJobCount int
 }
 
 // IndexFile stores the exact number of bytes
