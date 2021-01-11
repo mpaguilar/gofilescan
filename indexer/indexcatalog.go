@@ -15,19 +15,18 @@ import (
 
 var jobs int
 var results int
+var files int
+
+var mutex sync.Mutex
 
 func (catalog Catalog) BuildIndex() error {
 
 	start := time.Now()
 
-	var wg sync.WaitGroup
-	var resWaitGroup sync.WaitGroup
-
-	catalog.NdxJobWaitGroup = &wg
-	catalog.NdxResultsWaitGroup = &resWaitGroup
-
 	catalog.NdxJobs = make(chan *IndexFile)
 	catalog.NdxResults = make(chan *IndexFile)
+
+	done := make(chan bool)
 
 	hostname, err := os.Hostname()
 	if err != nil {
@@ -35,10 +34,8 @@ func (catalog Catalog) BuildIndex() error {
 		hostname = "localhost"
 	}
 
-	for i := 0; i < 5; i++ {
-		go catalog.ProcessIndexFileWorker()
-		go catalog.ProcessResultsWorker()
-	}
+	go catalog.CreateIndexerPool()
+	go catalog.CreateResultsPool(done)
 
 	for _, ndxPath := range catalog.IndexPaths {
 		ndxPath.Hostname = hostname
@@ -49,13 +46,16 @@ func (catalog Catalog) BuildIndex() error {
 
 	}
 
-	wg.Wait()
-	resWaitGroup.Wait()
+	fmt.Println("Finished indexing")
+
+	close(catalog.NdxJobs)
+
+	<-done
 
 	duration := time.Since(start)
 	fmt.Printf("%v", duration)
 	fmt.Println()
-	fmt.Printf("jobs: %v, results: %v", jobs, results)
+	fmt.Printf("files: %v, jobs: %v, results: %v", files, jobs, results)
 
 	return nil
 }
@@ -87,6 +87,7 @@ func (catalog Catalog) BuildPathIndex(ndxPath IndexPath) error {
 		fullpath := filepath.Clean(ndxPath.Path + "/" + dirent.Name())
 
 		if ndxPath.ShouldIndexFile(dirent) {
+			files++
 
 			ndxfile := IndexFile{
 				ndxPath.Hostname,
@@ -97,34 +98,62 @@ func (catalog Catalog) BuildPathIndex(ndxPath IndexPath) error {
 				"",
 				0} // initialize the CksumBytes to zero because it isn't calculated yet
 
-			catalog.NdxJobWaitGroup.Add(1)
 			catalog.NdxJobs <- &ndxfile
-
 		}
 	}
 
 	return nil
 }
 
-func (catalog Catalog) ProcessIndexFileWorker() {
-	for ndxFile := range catalog.NdxJobs {
-		catalog.ProcessIndexFile(ndxFile)
+func (catalog Catalog) CreateResultsPool(done chan bool) {
+	var resultWaitGroup sync.WaitGroup
 
-		catalog.NdxResultsWaitGroup.Add(1)
-		jobs++
-		catalog.NdxResults <- ndxFile
-
-		catalog.NdxJobWaitGroup.Done()
+	for i := 0; i < 5; i++ {
+		go catalog.ProcessResultsWorker(&resultWaitGroup)
+		resultWaitGroup.Add(1)
 	}
+
+	resultWaitGroup.Wait()
+	done <- true
 }
 
-func (catalog Catalog) ProcessResultsWorker() {
-	for ndxFile := range catalog.NdxResults {
-		results++
-		ndxFile.DisplayIndexFileToStdout()
+func (catalog Catalog) CreateIndexerPool() {
 
-		catalog.NdxResultsWaitGroup.Done()
+	var jobWaitGroup sync.WaitGroup
+
+	for i := 0; i < 5; i++ {
+		go catalog.ProcessIndexFileWorker(&jobWaitGroup)
+		jobWaitGroup.Add(1)
 	}
+
+	jobWaitGroup.Wait()
+	fmt.Println("Finished waiting for jobs")
+	close(catalog.NdxResults)
+}
+
+func (catalog Catalog) ProcessResultsWorker(wg *sync.WaitGroup) {
+
+	for ndxFile := range catalog.NdxResults {
+		mutex.Lock()
+		results++
+		mutex.Unlock()
+		ndxFile.DisplayIndexFileToStdout()
+	}
+	wg.Done()
+}
+
+func (catalog Catalog) ProcessIndexFileWorker(wg *sync.WaitGroup) {
+
+	for ndxFile := range catalog.NdxJobs {
+		log.Printf("Indexing: %v", ndxFile.FullPath)
+		mutex.Lock()
+		jobs++
+		mutex.Unlock()
+		catalog.ProcessIndexFile(ndxFile)
+		catalog.NdxResults <- ndxFile
+	}
+	wg.Done()
+
 }
 
 func (catalog Catalog) ProcessIndexFile(ndxFile *IndexFile) error {
