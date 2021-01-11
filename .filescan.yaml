@@ -3,6 +3,7 @@ Catalogs:
    # in Kilobytes
    CksumKBytes: 0
    IndexPaths:
+
    - Path: c:\opencv
      Exclude: 
        - "*.tgz"
@@ -11,3 +12,4 @@ Catalogs:
        - "*.csv"
 
    - Path: D:\data\projects\python
+   

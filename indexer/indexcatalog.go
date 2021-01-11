@@ -23,8 +23,8 @@ func (catalog Catalog) BuildIndex() error {
 
 	start := time.Now()
 
-	catalog.NdxJobs = make(chan *IndexFile)
-	catalog.NdxResults = make(chan *IndexFile)
+	catalog.NdxJobs = make(chan *IndexFile, 5)
+	catalog.NdxResults = make(chan *IndexFile, 5)
 
 	done := make(chan bool)
 
@@ -55,7 +55,7 @@ func (catalog Catalog) BuildIndex() error {
 	duration := time.Since(start)
 	fmt.Printf("%v", duration)
 	fmt.Println()
-	fmt.Printf("files: %v, jobs: %v, results: %v", files, jobs, results)
+	fmt.Printf("files: %v, indexed: %v, results: %v", files, jobs, results)
 
 	return nil
 }
@@ -121,24 +121,28 @@ func (catalog Catalog) CreateIndexerPool() {
 
 	var jobWaitGroup sync.WaitGroup
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 20; i++ {
 		go catalog.ProcessIndexFileWorker(&jobWaitGroup)
 		jobWaitGroup.Add(1)
 	}
 
 	jobWaitGroup.Wait()
-	fmt.Println("Finished waiting for jobs")
+
+	// let results know that no more are coming
 	close(catalog.NdxResults)
 }
 
 func (catalog Catalog) ProcessResultsWorker(wg *sync.WaitGroup) {
 
 	for ndxFile := range catalog.NdxResults {
+
 		mutex.Lock()
 		results++
 		mutex.Unlock()
 		ndxFile.DisplayIndexFileToStdout()
+
 	}
+
 	wg.Done()
 }
 
@@ -244,7 +248,7 @@ func (ndxPath *IndexPath) ShouldIndexFile(fileNfo os.FileInfo) bool {
 			return false
 		}
 
-		// check the whole path
+		// check the full path
 		fullpath := filepath.Join(ndxPath.Path, fileNfo.Name())
 		matched, _ = filepath.Match(ex, fullpath)
 		if matched {
