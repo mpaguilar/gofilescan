@@ -40,7 +40,7 @@ func (catalog Catalog) BuildIndex() error {
 
 	for _, ndxPath := range catalog.IndexPaths {
 		ndxPath.Hostname = hostname
-		err := catalog.BuildPathIndex(ndxPath)
+		err := catalog.BuildPathIndex(ndxPath.Path, ndxPath)
 		if err != nil {
 			log.Println("Error processing catalog path: " + ndxPath.Path)
 		}
@@ -64,7 +64,7 @@ func (catalog Catalog) BuildIndex() error {
 // retrieve the entries in this directory
 // sort into directories and files
 // send them to IndexCurrentPath
-func (catalog Catalog) BuildPathIndex(ndxPath IndexPath) error {
+func (catalog Catalog) BuildPathIndex(basePath string, ndxPath IndexPath) error {
 	var err error
 
 	cleanPath := filepath.Clean(ndxPath.Path)
@@ -81,23 +81,25 @@ func (catalog Catalog) BuildPathIndex(ndxPath IndexPath) error {
 		if dirent.IsDir() {
 			newNdxPath := ndxPath
 			newNdxPath.Path = ndxPath.Path + "/" + dirent.Name()
-			catalog.BuildPathIndex(newNdxPath)
+			catalog.BuildPathIndex(basePath, newNdxPath)
 			continue
 		}
 
 		fullpath := filepath.Clean(ndxPath.Path + "/" + dirent.Name())
+		relpath := strings.Replace(fullpath, basePath, "", 1)
 
 		if ndxPath.ShouldIndexFile(dirent) {
 			files++
 
 			ndxfile := IndexFile{
-				ndxPath.Hostname,
-				dirent.Name(),
-				fullpath,
-				dirent.Size(),
-				dirent.ModTime(),
-				"",
-				0} // initialize the CksumBytes to zero because it isn't calculated yet
+				Hostname:     ndxPath.Hostname,
+				Name:         dirent.Name(),
+				FullPath:     fullpath,
+				RelativePath: relpath,
+				Size:         dirent.Size(),
+				ModTime:      dirent.ModTime(),
+				Cksum:        "",
+				CksumBytes:   0} // initialize the CksumBytes to zero because it isn't calculated yet
 
 			catalog.NdxJobs <- &ndxfile
 		}

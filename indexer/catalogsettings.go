@@ -24,11 +24,20 @@ type Catalog struct {
 // IndexFile stores the exact number of bytes
 // in case the whole file is used
 type IndexFile struct {
-	Hostname   string
-	Name       string
-	FullPath   string
-	Size       int64
-	ModTime    time.Time
-	Cksum      string
+	// the machine this was run on
+	Hostname string
+	// just the filename
+	Name string
+	// the full path to the file on this machine
+	FullPath string
+	// the path from the root, for directory comparison
+	RelativePath string
+	// the size as reported by the OS
+	Size int64
+	// when the file was last modified
+	ModTime time.Time
+	// sha256sum
+	Cksum string
+	// number of bytes used to compute Cksum
 	CksumBytes int64
 }
