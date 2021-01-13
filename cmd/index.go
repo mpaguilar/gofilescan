@@ -22,10 +22,13 @@ THE SOFTWARE.
 package cmd
 
 import (
+	"context"
 	"fmt"
+	"log"
 
 	"filescan/indexer"
 
+	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/spf13/cobra"
 )
 
@@ -36,8 +39,13 @@ var indexCmd = &cobra.Command{
 	Long:  `Reads '.filescan.yaml' in the local directory for paths to scan`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(appSettings)
+		conn, err := pgxpool.Connect(context.Background(), appSettings.Database.ConnectionString)
+		if err != nil {
+			log.Fatalf("Error opening database connection: %v", err)
+			return
+		}
 		for _, cat := range appSettings.Catalogs {
-			cat.BuildIndex()
+			cat.BuildIndex(conn)
 		}
 	},
 }

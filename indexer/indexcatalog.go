@@ -12,6 +12,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/jackc/pgx/v4/pgxpool"
 )
 
 var jobs int
@@ -20,7 +22,7 @@ var files int
 
 var mutex sync.Mutex
 
-func (catalog Catalog) BuildIndex() error {
+func (catalog Catalog) BuildIndex(conn *pgxpool.Pool) error {
 
 	start := time.Now()
 
@@ -36,7 +38,7 @@ func (catalog Catalog) BuildIndex() error {
 	}
 
 	go catalog.CreateIndexerPool()
-	go catalog.CreateResultsPool(done)
+	go catalog.CreateResultsPool(conn, done)
 
 	for _, ndxPath := range catalog.IndexPaths {
 		ndxPath.Hostname = hostname
@@ -108,11 +110,11 @@ func (catalog Catalog) BuildPathIndex(basePath string, ndxPath IndexPath) error 
 	return nil
 }
 
-func (catalog Catalog) CreateResultsPool(done chan bool) {
+func (catalog Catalog) CreateResultsPool(conn *pgxpool.Pool, done chan bool) {
 	var resultWaitGroup sync.WaitGroup
 
 	for i := 0; i < catalog.ResultJobCount; i++ {
-		go catalog.ProcessResultsWorker(&resultWaitGroup)
+		go catalog.ProcessResultsWorker(conn, &resultWaitGroup)
 		resultWaitGroup.Add(1)
 	}
 
@@ -135,7 +137,7 @@ func (catalog Catalog) CreateIndexerPool() {
 	close(catalog.NdxResults)
 }
 
-func (catalog Catalog) ProcessResultsWorker(wg *sync.WaitGroup) {
+func (catalog Catalog) ProcessResultsWorker(conn *pgxpool.Pool, wg *sync.WaitGroup) {
 
 	for ndxFile := range catalog.NdxResults {
 
@@ -143,7 +145,10 @@ func (catalog Catalog) ProcessResultsWorker(wg *sync.WaitGroup) {
 		results++
 		mutex.Unlock()
 		ndxFile.DisplayIndexFileToStdout()
-
+		err := ndxFile.Store(conn)
+		if err != nil {
+			log.Printf("Error storing IndexFile: %v", err)
+		}
 	}
 
 	wg.Done()
@@ -179,6 +184,14 @@ func (catalog Catalog) ProcessIndexFile(ndxFile *IndexFile) error {
 	ndxFile.Cksum = fmt.Sprintf("%x", cksumtmp)
 	ndxFile.CksumBytes = cksumBytes
 
+	return nil
+}
+
+func (ndxFile IndexFile) Store(conn *pgxpool.Pool) error {
+	err := addIndexFile(conn, ndxFile)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

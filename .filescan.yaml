@@ -3,7 +3,7 @@ Catalogs:
    # in Kilobytes
    CksumKBytes: 4
    IndexJobCount: 5
-   ResultJobCount: 5
+   ResultJobCount: 10
    IndexPaths:
 
    - Path: c:\opencv
@@ -14,4 +14,6 @@ Catalogs:
        - "*.csv"
 
    - Path: D:\data\projects\python
+Database:
+  ConnectionString: "postgresql://crate@cratedb.service.home.mpa:5432/doc"
    

@@ -4,7 +4,9 @@ go 1.15
 
 require (
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
+	github.com/google/uuid v1.1.4
 	github.com/gopherjs/gopherjs v0.0.0-20200217142428-fce0ec30dd00 // indirect
+	github.com/jackc/pgx/v4 v4.10.1
 	github.com/kr/text v0.2.0 // indirect
 	github.com/magiconair/properties v1.8.4 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
