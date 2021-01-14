@@ -28,6 +28,7 @@ import (
 
 	"filescan/indexer"
 
+	"github.com/jackc/pgx/v4"
 	"github.com/jackc/pgx/v4/pgxpool"
 	"github.com/spf13/cobra"
 )
@@ -39,7 +40,11 @@ var indexCmd = &cobra.Command{
 	Long:  `Reads '.filescan.yaml' in the local directory for paths to scan`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println(appSettings)
-		conn, err := pgxpool.Connect(context.Background(), appSettings.Database.ConnectionString)
+
+		config, _ := pgxpool.ParseConfig(appSettings.Database.ConnectionString)
+		config.ConnConfig.LogLevel, _ = pgx.LogLevelFromString("debug")
+
+		conn, err := pgxpool.ConnectConfig(context.Background(), config)
 		if err != nil {
 			log.Fatalf("Error opening database connection: %v", err)
 			return

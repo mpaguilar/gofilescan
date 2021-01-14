@@ -151,6 +151,10 @@ func (catalog Catalog) ProcessResultsWorker(conn *pgxpool.Pool, wg *sync.WaitGro
 		}
 	}
 
+	cacheMutex.Lock()
+	flushIndexCache(conn)
+	cacheMutex.Unlock()
+
 	wg.Done()
 }
 
@@ -188,6 +192,7 @@ func (catalog Catalog) ProcessIndexFile(ndxFile *IndexFile) error {
 }
 
 func (ndxFile IndexFile) Store(conn *pgxpool.Pool) error {
+	// err := insertIndexFile(conn, ndxFile)
 	err := addIndexFile(conn, ndxFile)
 	if err != nil {
 		return err
