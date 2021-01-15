@@ -15,5 +15,5 @@ Catalogs:
 
    - Path: D:\data\projects\python
 Database:
-  ConnectionString: "postgresql://crate@cratedb.service.home.mpa:5432/doc"
+  ConnectionString: "postgresql://pgadmin:Boom123@bigbox.home.mpa:6321/FileScan"
    

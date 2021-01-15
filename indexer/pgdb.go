@@ -34,7 +34,7 @@ func addIndexFile(conn *pgxpool.Pool, ndxFile IndexFile) error {
 	defer cacheMutex.Unlock()
 
 	cachedNdx = append(cachedNdx, ndxFile)
-	if len(cachedNdx) >= 10 {
+	if len(cachedNdx) >= 1000 {
 		flushIndexCache(conn)
 	}
 
@@ -56,7 +56,7 @@ func flushIndexCache(conn *pgxpool.Pool) {
 			ndx.FullPath,
 			ndx.RelativePath,
 			ndx.Size,
-			ndx.ModTime.UTC().Format(time.RFC3339),
+			ndx.ModTime,
 			ndx.Cksum,
 			ndx.CksumBytes}
 
@@ -73,6 +73,8 @@ func flushIndexCache(conn *pgxpool.Pool) {
 	if err != nil {
 		log.Fatalf("Error copying entries: %v", err)
 	}
+
+	cachedNdx = cachedNdx[:0]
 
 	log.Printf("Copied %v entries from cache", copyCount)
 
