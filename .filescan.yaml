@@ -1,7 +1,7 @@
 Catalogs:
  - Name: personal
    # in Kilobytes
-   CksumKBytes: 4
+   CksumKBytes: 0
    IndexJobCount: 5
    ResultJobCount: 10
    IndexPaths:

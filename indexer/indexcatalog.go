@@ -180,6 +180,10 @@ func (catalog Catalog) ProcessIndexFile(ndxFile *IndexFile) error {
 		cksumBytes = ndxFile.Size
 	}
 
+	if ndxFile.Size > cksumBytes {
+		cksumBytes = ndxFile.Size
+	}
+
 	cksumtmp, err := CalcSha256(ndxFile.FullPath, cksumBytes)
 	if err != nil {
 		return err

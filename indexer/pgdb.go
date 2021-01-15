@@ -20,10 +20,10 @@ create table fileindex (
   Name Text,
   FullPath TEXT,
   RelativePath TEXT,
-  Size INTEGER,
+  Size BIGINT,
   ModTime TIMESTAMP WITH TIME ZONE,
   Cksum TEXT,
-  CksumBytes INTEGER );
+  CksumBytes BIGINT );
 */
 
 var cachedNdx []IndexFile
