@@ -59,6 +59,10 @@ func (catalog Catalog) BuildIndex(conn *pgxpool.Pool) error {
 
 	<-done
 
+	cacheMutex.Lock()
+	flushIndexCache(conn)
+	cacheMutex.Unlock()
+
 	duration := time.Since(start)
 	fmt.Printf("%v", duration)
 	fmt.Println()
@@ -169,10 +173,6 @@ func (catalog Catalog) ProcessResultsWorker(conn *pgxpool.Pool, wg *sync.WaitGro
 		}
 	}
 
-	cacheMutex.Lock()
-	flushIndexCache(conn)
-	cacheMutex.Unlock()
-
 	wg.Done()
 }
 
@@ -183,6 +183,8 @@ func (catalog Catalog) ProcessIndexFileWorker(wg *sync.WaitGroup) {
 		mutex.Lock()
 		jobs++
 		mutex.Unlock()
+		// ignore errors for now.
+		// The file will still be added, but it won't have a checksum
 		catalog.ProcessIndexFile(ndxFile)
 		catalog.NdxResults <- ndxFile
 	}
@@ -235,7 +237,7 @@ func CalcSha256(fullPath string, cksumBytes int64) ([]byte, error) {
 	fileHandle, err := os.Open(fullPath)
 
 	if err != nil {
-		log.Fatal("Failed to open file: " + fullPath)
+		log.Printf("Failed to open file: " + fullPath)
 		return nil, err
 	}
 	defer fileHandle.Close()
@@ -243,8 +245,8 @@ func CalcSha256(fullPath string, cksumBytes int64) ([]byte, error) {
 	sha := sha256.New()
 
 	if _, err := io.CopyN(sha, fileHandle, cksumBytes); err != nil && err != io.EOF {
-		log.Fatal(err)
-		log.Fatal("Error computing sha256 " + fullPath)
+		log.Printf("%v", err)
+		log.Printf("Error computing sha256 "+fullPath+": %v", err)
 
 		return nil, err
 	}
