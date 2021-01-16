@@ -1,8 +1,8 @@
 Catalogs:
  - Name: personal
    # in Kilobytes
-   CksumKBytes: 4
-   IndexJobCount: 5
+   CksumKBytes: 0
+   IndexJobCount: 10
    ResultJobCount: 10
    IndexPaths:
 
@@ -14,6 +14,7 @@ Catalogs:
        - "*.csv"
 
    - Path: D:\data\projects\python
+   - Path: C:\Windows
 Database:
   ConnectionString: "postgresql://pgadmin:Boom123@bigbox.home.mpa:6321/FileScan"
   # ConnectionString: "postgresql://crate@cratedb.service.home.mpa:5432/doc"
