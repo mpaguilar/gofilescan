@@ -1,6 +1,7 @@
 package indexer
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/binary"
 	"fmt"
@@ -42,6 +43,9 @@ func (catalog Catalog) BuildIndex(conn *pgxpool.Pool) error {
 
 	for _, ndxPath := range catalog.IndexPaths {
 		ndxPath.Hostname = hostname
+
+		catalog.cleanIndexPath(conn, ndxPath)
+
 		err := catalog.BuildPathIndex(ndxPath.Path, ndxPath)
 		if err != nil {
 			log.Println("Error processing catalog path: " + ndxPath.Path)
@@ -61,6 +65,20 @@ func (catalog Catalog) BuildIndex(conn *pgxpool.Pool) error {
 	fmt.Printf("files: %v, indexed: %v, results: %v", files, jobs, results)
 
 	return nil
+}
+
+func (catalog Catalog) cleanIndexPath(conn *pgxpool.Pool, ndxPath IndexPath) {
+	fullpath := strings.Replace(ndxPath.Path, "\\", "\\\\", -1)
+	deleteStatement := fmt.Sprintf("DELETE FROM fileindex WHERE hostname = '%v' AND fullpath LIKE '%v\\\\%%'",
+		ndxPath.Hostname, fullpath)
+
+	rows, err := conn.Exec(context.Background(), deleteStatement)
+
+	if err != nil {
+		log.Fatalf("Error deleting: %v", err)
+	}
+
+	log.Printf("Delete result: %v", rows)
 }
 
 // retrieve the entries in this directory
@@ -180,7 +198,7 @@ func (catalog Catalog) ProcessIndexFile(ndxFile *IndexFile) error {
 		cksumBytes = ndxFile.Size
 	}
 
-	if ndxFile.Size > cksumBytes {
+	if ndxFile.Size < cksumBytes {
 		cksumBytes = ndxFile.Size
 	}
 
